@@ -82,6 +82,46 @@ ibtk extract-audio     --backup <id> --out ./recovered/Audio
 - **extract-audio** — splits shared music/audio from actual voice
   messages, with the date-recovery priority chain described above.
 
+## Extracting from a macOS Messages folder
+
+If you have a copy of `~/Library/Messages` (from a Mac, or a Time Machine /
+migration copy) rather than an iPhone backup, use:
+
+```bash
+# --messages-dir must contain chat.db (+ chat.db-wal, chat.db-shm) and Attachments/
+ibtk extract-macos-messages \
+  --messages-dir /path/to/Messages \
+  --out ./recovered_macos \
+  [--contacts-vcf ./recovered/Contacts/contacts.vcf] \
+  [--local-time] [--include-hidden]
+```
+
+Output: `Messages/*.txt` (one transcript per conversation, same format as
+`extract-messages`), `Messages_Media/<conversation>/…` with real dates set,
+and `attachments_index.csv` recording where each file's date came from.
+
+What it does differently from the iOS path, and why it matters:
+
+- **Reads a copy of `chat.db` together with its `-wal`/`-shm`.** Opening
+  `chat.db` alone silently drops everything not yet checkpointed, and
+  opening it in place can modify your source.
+- **Recovers message bodies from `attributedBody`.** On recent macOS,
+  `message.text` is often NULL; filtering on it loses those messages.
+- **Never goes through a naive datetime to get file times.** Cocoa
+  timestamps are UTC; `naive_datetime.timestamp()` assumes local time and
+  shifts file dates by your UTC offset.
+- **Merges iMessage/SMS chat rows** for the same `chat_identifier` into one
+  transcript.
+- **Rejects implausible embedded dates** (pre-2001, or later than the
+  message that delivered the file) and falls back to the message date.
+
+Transcript times are UTC by default so they line up with `extract-messages`
+output for `merge-messages`; pass `--local-time` for your timezone. Not
+(yet) handled: edited/unsent message history, tapback grouping (tapbacks
+appear as ordinary lines), and recovery of deleted messages.
+
+This command is not part of `extract-all`, which operates on a backup.
+
 ## Merging, comparing, and deduplicating
 
 Four more commands for reconciling multiple sources — merging an old

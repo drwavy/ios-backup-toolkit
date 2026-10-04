@@ -10,6 +10,9 @@ Command-line entry point for the iOS Backup Toolkit.
     ibtk extract-audio     --backup <id-or-path> --out <dir>
     ibtk extract-all       --backup <id-or-path> --out <dir>
 
+    ibtk extract-macos-messages --messages-dir <~/Library/Messages copy> --out <dir>
+                                [--contacts-vcf <file>] [--local-time] [--include-hidden]
+
     ibtk merge-messages  --primary <dir> --secondary <dir> --out <dir>
     ibtk compare-messages --a <dir> --b <dir> [--report <file>]
     ibtk merge-media  --sources <dir> [<dir> ...] --out <dir>
@@ -31,6 +34,7 @@ from pathlib import Path
 from ibtk.backup import Backup, DEFAULT_BACKUP_ROOT, list_backups
 from ibtk.commands import messages, contacts, calendar, bookmarks, photos, audio
 from ibtk.commands import merge_messages, compare_messages, merge_media, dedup_media
+from ibtk.commands import macos_messages
 
 
 COMMANDS = {
@@ -83,6 +87,16 @@ def cmd_extract_all(args):
                 print(f"  Skipped: {ex}")
 
 
+def cmd_extract_macos_messages(args):
+    macos_messages.run(
+        Path(args.messages_dir),
+        Path(args.out),
+        contacts_vcf=args.contacts_vcf,
+        local_time=args.local_time,
+        include_hidden=args.include_hidden,
+    )
+
+
 def cmd_merge_messages(args):
     merge_messages.run(Path(args.primary), Path(args.secondary), Path(args.out))
 
@@ -117,6 +131,14 @@ def build_parser():
     p.add_argument("--backup", required=True)
     p.add_argument("--out", required=True)
     p.set_defaults(func=cmd_extract_all)
+
+    # Not part of extract-all: it reads a plain Messages folder, not a backup.
+    p = sub.add_parser(
+        "extract-macos-messages",
+        help="Extract a macOS Messages folder (chat.db + Attachments) into transcripts and dated media",
+    )
+    macos_messages.add_arguments(p)
+    p.set_defaults(func=cmd_extract_macos_messages)
 
     p = sub.add_parser(
         "merge-messages",
